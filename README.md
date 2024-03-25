@@ -1,202 +1,166 @@
-# Guidance Title (required)
+# Generative BI Demo Application
 
-The Guidance title should be consistent with the title established first in Alchemy.
+[中文文档](README_CN.md)
+## Introduction
 
-**Example:** *Guidance for Product Substitutions on AWS*
+A NLQ(Natural Language Query) demo using Amazon Bedrock, Amazon OpenSearch with RAG technique.
 
-This title correlates exactly to the Guidance it’s linked to, including its corresponding sample code repository. 
+![Screenshot](./assets/screenshot-genbi.png)
 
+## Deployment Guide
 
-## Table of Content (required)
+### 1. Prepare EC2 Instance
+Create an EC2 with following configuration:
 
-List the top-level sections of the README template, along with a hyperlink to the specific section.
+    - OS Image (AMI): Amazon Linux 2023
+    - Instance type: t3.large or higher
+    - VPC: use default one and choose a public subnet
+    - Security group: Allow access to 22, 80 port from anywhere (Select "Allow SSH traffic from Anywhere" and "Allow HTTP traffic from the internet")
+    - Storage (volumes): 1 GP3 volume(s) - 30 GiB
 
-### Required
+### 2. Config Permission
 
-1. [Overview](#overview-required)
-    - [Cost](#cost)
-2. [Prerequisites](#prerequisites-required)
-    - [Operating System](#operating-system-required)
-3. [Deployment Steps](#deployment-steps-required)
-4. [Deployment Validation](#deployment-validation-required)
-5. [Running the Guidance](#running-the-guidance-required)
-6. [Next Steps](#next-steps-required)
-7. [Cleanup](#cleanup-required)
+2.1 IAM Role's permission
 
-***Optional***
+Create a new IAM role with name genbirag-service-role and settings below:
+   - Trusted entity type: AWS Service
+   - Service: EC2
+   - Use Case: EC2 - Allows EC2 instances to call AWS services on your behalf.
 
-8. [FAQ, known issues, additional considerations, and limitations](#faq-known-issues-additional-considerations-and-limitations-optional)
-9. [Revisions](#revisions-optional)
-10. [Notices](#notices-optional)
-11. [Authors](#authors-optional)
+Skip "Add permission" and create this role first.
 
-## Overview (required)
+After the role is created, and then add permission by creating inline policy as below:
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "bedrock:*",
+                "dynamodb:*"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
 
-1. Provide a brief overview explaining the what, why, or how of your Guidance. You can answer any one of the following to help you write this:
+Finally, Bind this IAM instance profile (IAM Role) to your EC2 instance.
 
-    - **Why did you build this Guidance?**
-    - **What problem does this Guidance solve?**
+2.2 Amazon Bedrock's Model Permission
 
-2. Include the architecture diagram image, as well as the steps explaining the high-level overview and flow of the architecture. 
-    - To add a screenshot, create an ‘assets/images’ folder in your repository and upload your screenshot to it. Then, using the relative file path, add it to your README. 
+Make sure you have enabled model access in AWS Console in us-west-2 (Oregon) region for Anthropic Claude model and Amazon Titan embedding model.
+![Bedrock](assets/bedrock_model_access.png)
 
-### Cost
+### 3. Install Docker and Docker Compose
 
-This section is for a high-level cost estimate. Think of a likely straightforward scenario with reasonable assumptions based on the problem the Guidance is trying to solve. If applicable, provide an in-depth cost breakdown table in this section.
+Log in to the EC2 instance using SSH command as the ec2-user user or use the AWS EC2 Instance Connect feature in the EC2 console to log in to the command line. 
 
-Start this section with the following boilerplate text:
+In the session, execute the following commands. **Note: Execute each command one line at a time.**
 
-_You are responsible for the cost of the AWS services used while running this Guidance. As of <month> <year>, the cost for running this Guidance with the default settings in the <Default AWS Region (Most likely will be US East (N. Virginia)) > is approximately $<n.nn> per month for processing ( <nnnnn> records )._
+If you are not this user, you can switch with the following command: 
+```bash
+sudo su - ec2-user
+```
 
-Replace this amount with the approximate cost for running your Guidance in the default Region. This estimate should be per month and for processing/serving resonable number of requests/entities.
+```bash  
+# Install components
+sudo dnf install docker python3-pip git -y && pip3 install -U awscli && pip3 install docker-compose
 
+# Fix docker python wrapper 7.0 SSL version issue  
+pip3 install docker==6.1.3
 
-## Prerequisites (required)
+# Configure components
+sudo systemctl enable docker && sudo systemctl start docker && sudo usermod -aG docker $USER
 
-### Operating System (required)
+# Exit the terminal
+exit
+```
 
-- Talk about the base Operating System (OS) and environment that can be used to run or deploy this Guidance, such as *Mac, Linux, or Windows*. Include all installable packages or modules required for the deployment. 
-- By default, assume Amazon Linux 2/Amazon Linux 2023 AMI as the base environment. All packages that are not available by default in AMI must be listed out.  Include the specific version number of the package or module.
+### 4. Install the Demo Application
 
-**Example:**
-“These deployment instructions are optimized to best work on **<Amazon Linux 2 AMI>**.  Deployment in another OS may require additional steps.”
+Reopen a terminal session and continue executing the following commands:
 
-- Include install commands for packages, if applicable.
+Note: Execute each command one line at a time.
 
+```bash
+# Log in as user ec2-user
 
-### Third-party tools (If applicable)
+# Configure OpenSearch server parameters
+sudo sh -c "echo 'vm.max_map_count=262144' > /etc/sysctl.conf" && sudo sysctl -p
 
-*List any installable third-party tools required for deployment.*
+# Clone the code
+git clone https://github.com/aws-samples/generative-bi-using-rag.git
 
+# Config the Environment Variable in .env file, modify AWS_DEFAULT_REGION to the region same as the EC2 instance.
+cd generative-bi-using-rag/application && cp .env.template .env 
 
-### AWS account requirements (If applicable)
+# Build docker images locally
+docker-compose build
 
-*List out pre-requisites required on the AWS account if applicable, this includes enabling AWS regions, requiring ACM certificate.*
+# Start all services
+docker-compose up -d
 
-**Example:** “This deployment requires you have public ACM certificate available in your AWS account”
+# Wait 3 minutes for MySQL and OpenSearch to initialize
+sleep 180
+```
 
-**Example resources:**
-- ACM certificate 
-- DNS record
-- S3 bucket
-- VPC
-- IAM role with specific permissions
-- Enabling a Region or service etc.
+### 5. Initialize MySQL
 
+In the terminal, continue executing the following commands:
 
-### aws cdk bootstrap (if sample code has aws-cdk)
+```bash
+cd initial_data && wget https://github.com/fengxu1211/generative-bi-using-rag/raw/demo_data/application/initial_data/init_mysql_db.sql.zip
 
-<If using aws-cdk, include steps for account bootstrap for new cdk users.>
+unzip init_mysql_db.sql.zip && cd ..
 
-**Example blurb:** “This Guidance uses aws-cdk. If you are using aws-cdk for first time, please perform the below bootstrapping....”
+docker exec nlq-mysql sh -c "mysql -u root -ppassword -D llm  < /opt/data/init_mysql_db.sql" 
+```
 
-### Service limits  (if applicable)
+### 6. Initialize Amazon OpenSearch docker version
 
-<Talk about any critical service limits that affect the regular functioning of the Guidance. If the Guidance requires service limit increase, include the service name, limit name and link to the service quotas page.>
+6.1 Initialize the index for the sample data by creating a new index:
 
-### Supported Regions (if applicable)
+```bash 
+docker exec nlq-webserver python opensearch_deploy.py
+```
 
-<If the Guidance is built for specific AWS Regions, or if the services used in the Guidance do not support all Regions, please specify the Region this Guidance is best suited for>
+If the command fails due to any errors, delete the index and rerun the previous command:
 
+```bash
+curl -XDELETE -k -u admin:admin "https://localhost:9200/uba"
+```
 
-## Deployment Steps (required)
+6.2 (Optional) Bulk import custom QA data by appending to an existing index: 
 
-Deployment steps must be numbered, comprehensive, and usable to customers at any level of AWS expertise. The steps must include the precise commands to run, and describe the action it performs.
+```bash
+docker exec nlq-webserver python opensearch_deploy.py custom false
+```
 
-* All steps must be numbered.
-* If the step requires manual actions from the AWS console, include a screenshot if possible.
-* The steps must start with the following command to clone the repo. ```git clone xxxxxxx```
-* If applicable, provide instructions to create the Python virtual environment, and installing the packages using ```requirement.txt```.
-* If applicable, provide instructions to capture the deployed resource ARN or ID using the CLI command (recommended), or console action.
+### 7. Access the Streamlit Web UI
 
- 
-**Example:**
+Open in your browser: `http://<your-ec2-public-ip>`
 
-1. Clone the repo using command ```git clone xxxxxxxxxx```
-2. cd to the repo folder ```cd <repo-name>```
-3. Install packages in requirements using command ```pip install requirement.txt```
-4. Edit content of **file-name** and replace **s3-bucket** with the bucket name in your account.
-5. Run this command to deploy the stack ```cdk deploy``` 
-6. Capture the domain name created by running this CLI command ```aws apigateway ............```
+Note: Use HTTP instead of HTTPS. 
 
+## How to use custom data sources with the demo app
+1. First create the corresponding Data Profile in Data Connection Management and Data Profile Management.
+2. After selecting the Data Profile, start asking questions. For simple questions, the LLM can directly generate the correct SQL. If the generated SQL is incorrect, try adding more annotations to the Schema.  
+3. Use the Schema Management page, select the Data Profile, and add comments to the tables and fields. These comments will be included in the prompt sent to the LLM.
+   (1) For some fields, add values to the Annotation attribute, e.g. "Values: Y|N", "Values: Shanghai|Jiangsu".
+   (2) For table comments, add domain knowledge to help answer business questions.
+4. Ask the question again. If still unable to generate the correct SQL, add Sample QA pairs to OpenSearch.
+   (1) Using the Index Management page, select the Data Profile then you can add, view and delete QA pairs.
+   
+5. Ask again. In theory, the RAG approach (PE uses Few shots) should now be able to generate the correct SQL.
 
+## Security
 
-## Deployment Validation  (required)
+See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
 
-<Provide steps to validate a successful deployment, such as terminal output, verifying that the resource is created, status of the CloudFormation template, etc.>
+## License
 
+This library is licensed under the MIT-0 License. See the LICENSE file.
 
-**Examples:**
-
-* Open CloudFormation console and verify the status of the template with the name starting with xxxxxx.
-* If deployment is successful, you should see an active database instance with the name starting with <xxxxx> in        the RDS console.
-*  Run the following CLI command to validate the deployment: ```aws cloudformation describe xxxxxxxxxxxxx```
-
-
-
-## Running the Guidance (required)
-
-<Provide instructions to run the Guidance with the sample data or input provided, and interpret the output received.> 
-
-This section should include:
-
-* Guidance inputs
-* Commands to run
-* Expected output (provide screenshot if possible)
-* Output description
-
-
-
-## Next Steps (required)
-
-Provide suggestions and recommendations about how customers can modify the parameters and the components of the Guidance to further enhance it according to their requirements.
-
-
-## Cleanup (required)
-
-- Include detailed instructions, commands, and console actions to delete the deployed Guidance.
-- If the Guidance requires manual deletion of resources, such as the content of an S3 bucket, please specify.
-
-
-
-## FAQ, known issues, additional considerations, and limitations (optional)
-
-
-**Known issues (optional)**
-
-<If there are common known issues, or errors that can occur during the Guidance deployment, describe the issue and resolution steps here>
-
-
-**Additional considerations (if applicable)**
-
-<Include considerations the customer must know while using the Guidance, such as anti-patterns, or billing considerations.>
-
-**Examples:**
-
-- “This Guidance creates a public AWS bucket required for the use-case.”
-- “This Guidance created an Amazon SageMaker notebook that is billed per hour irrespective of usage.”
-- “This Guidance creates unauthenticated public API endpoints.”
-
-
-Provide a link to the *GitHub issues page* for users to provide feedback.
-
-
-**Example:** *“For any feedback, questions, or suggestions, please use the issues tab under this repo.”*
-
-## Revisions (optional)
-
-Document all notable changes to this project.
-
-Consider formatting this section based on Keep a Changelog, and adhering to Semantic Versioning.
-
-## Notices (optional)
-
-Include a legal disclaimer
-
-**Example:**
-*Customers are responsible for making their own independent assessment of the information in this Guidance. This Guidance: (a) is for informational purposes only, (b) represents AWS current product offerings and practices, which are subject to change without notice, and (c) does not create any commitments or assurances from AWS and its affiliates, suppliers or licensors. AWS products or services are provided “as is” without warranties, representations, or conditions of any kind, whether express or implied. AWS responsibilities and liabilities to its customers are controlled by AWS agreements, and this Guidance is not part of, nor does it modify, any agreement between AWS and its customers.*
-
-
-## Authors (optional)
-
-Name of code contributors
