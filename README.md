@@ -4,7 +4,7 @@
 
 The Guidance title should be consistent with the title established first in Alchemy.
 
-## Table of Content (required)
+## Table of Content
 
 List the top-level sections of the README template, along with a hyperlink to the specific section.
 
@@ -22,10 +22,9 @@ List the top-level sections of the README template, along with a hyperlink to th
 
 ***Optional***
 
-8. [FAQ, known issues, additional considerations, and limitations](#faq-known-issues-additional-considerations-and-limitations-optional)
-9. [Revisions](#revisions-optional)
-10. [Notices](#notices-optional)
-11. [Authors](#authors-optional)
+8. [Revisions](#revisions-optional)
+9. [Notices](#notices-optional)
+10. [Authors](#authors-optional)
 
 ## Overview
 
@@ -38,16 +37,11 @@ This is a comprehensive framework designed to enable Generative BI capabilities 
 
 ![Screenshot](./assets/screenshot-genbi.png)
 
-### Cost ( required )
+### Cost
 
-_You are responsible for the cost of the AWS services used while running this Guidance. As of <05> <2024>, the cost for running this Guidance with the default settings in the <us-west-2> is approximately $<n.nn> per month for processing ( <4000> requests )._
+As of May, 2024, the cost for running this Guidance with the default settings in the _us-west-2_ is approximately $476.74 per month for processing 2000 requests.
 
-Suggest you keep this boilerplate text:
-_We recommend creating a [Budget](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html) through [AWS Cost Explorer](https://aws.amazon.com/aws-cost-management/aws-cost-explorer/) to help manage costs. Prices are subject to change. For full details, refer to the pricing webpage for each AWS service used in this Guidance._
-
-### Sample Cost Table ( required )
-
-**Note : Once you have created a sample cost table using AWS Pricing Calculator, copy the cost breakdown to below table and upload a PDF of the cost estimation on BuilderSpace.**
+### Sample Cost Table
 
 The following table provides a sample cost breakdown for deploying this Guidance with the default parameters in the US East (N. Virginia) Region for one month.
 
@@ -75,11 +69,11 @@ The following table provides a sample cost breakdown for deploying this Guidance
 - Amazon EC2
 - Amazon DynamoDB
 
-### Supported Regions (if applicable)
+### Supported Regions
 
-us-west-2, us-east-2, us-east-1, ap-south-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, eu-central-1, eu-west-1, eu-west-3, or any other region that supports the services used in the Guidance.
+us-west-2, us-east-2, us-east-1, ap-south-1, ap-southeast-1, ap-southeast-2, ap-northeast-1, eu-central-1, eu-west-1, eu-west-3, or any other region that supports the services (bedrock) used in the Guidance.
 
-## Deployment Steps (required)
+## Deployment Steps
 
 ### 1. Prepare EC2 Instance
 Create an EC2 with following configuration:
@@ -210,6 +204,8 @@ curl -XDELETE -k -u admin:admin "https://localhost:9200/uba"
 docker exec nlq-webserver python opensearch_deploy.py custom false
 ```
 
+## Deployment Validation 
+
 ### 7. Access the Streamlit Web UI
 
 Open in your browser: `http://<your-ec2-public-ip>`
@@ -226,32 +222,11 @@ Note: Use HTTP instead of HTTPS.
    (1) Using the Index Management page, select the Data Profile then you can add, view and delete QA pairs.
    
 5. Ask again. In theory, the RAG approach (PE uses Few shots) should now be able to generate the correct SQL.
- 
-**Example:**
 
-1. Clone the repo using command ```git clone xxxxxxxxxx```
-2. cd to the repo folder ```cd <repo-name>```
-3. Install packages in requirements using command ```pip install requirement.txt```
-4. Edit content of **file-name** and replace **s3-bucket** with the bucket name in your account.
-5. Run this command to deploy the stack ```cdk deploy``` 
-6. Capture the domain name created by running this CLI command ```aws apigateway ............```
+* if Above commands can run successfully, the deployment is successful.
 
 
-
-## Deployment Validation  (required)
-
-<Provide steps to validate a successful deployment, such as terminal output, verifying that the resource is created, status of the CloudFormation template, etc.>
-
-
-**Examples:**
-
-* Open CloudFormation console and verify the status of the template with the name starting with xxxxxx.
-* If deployment is successful, you should see an active database instance with the name starting with <xxxxx> in        the RDS console.
-*  Run the following CLI command to validate the deployment: ```aws cloudformation describe xxxxxxxxxxxxx```
-
-
-
-## Running the Guidance (required)
+## Running the Guidance 
 
 <Provide instructions to run the Guidance with the sample data or input provided, and interpret the output received.> 
 
@@ -263,7 +238,6 @@ This section should include:
 * Output description
 
 
-
 ## Next Steps (required)
 
 Provide suggestions and recommendations about how customers can modify the parameters and the components of the Guidance to further enhance it according to their requirements.
@@ -273,29 +247,3 @@ Provide suggestions and recommendations about how customers can modify the param
 
 - Include detailed instructions, commands, and console actions to delete the deployed Guidance.
 - If the Guidance requires manual deletion of resources, such as the content of an S3 bucket, please specify.
-
-
-
-## FAQ, known issues, additional considerations, and limitations (optional)
-
-
-**Known issues (optional)**
-
-<If there are common known issues, or errors that can occur during the Guidance deployment, describe the issue and resolution steps here>
-
-
-**Additional considerations (if applicable)**
-
-<Include considerations the customer must know while using the Guidance, such as anti-patterns, or billing considerations.>
-
-**Examples:**
-
-- “This Guidance creates a public AWS bucket required for the use-case.”
-- “This Guidance created an Amazon SageMaker notebook that is billed per hour irrespective of usage.”
-- “This Guidance creates unauthenticated public API endpoints.”
-
-
-Provide a link to the *GitHub issues page* for users to provide feedback.
-
-
-**Example:** *“For any feedback, questions, or suggestions, please use the issues tab under this repo.”*
