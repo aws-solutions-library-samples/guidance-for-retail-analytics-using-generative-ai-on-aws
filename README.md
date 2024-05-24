@@ -39,7 +39,7 @@ This is a comprehensive framework designed to enable Generative BI capabilities 
 
 ![Screenshot](./assets/architecture.png)
 _Architecture Diagram_
- 
+
 ### Cost
 
 As of May, 2024, the cost for running this Guidance with the default settings in the _us-west-2_ is approximately $476.74 per month for processing 2000 requests.
@@ -241,12 +241,12 @@ This section should include:
 * Output description
 
 
-## Next Steps (required)
+## Next Steps 
+![Screenshot](./assets/architecture-production.png)
+Refer to this architecture diagram for the production deployment of the Guidance. Move containers to ECS or EKS or Lambda, use RDS for MySQL, and use Amazon OpenSearch Service for OpenSearch.
 
-Provide suggestions and recommendations about how customers can modify the parameters and the components of the Guidance to further enhance it according to their requirements.
+## Cleanup 
 
-
-## Cleanup (required)
-
-- Include detailed instructions, commands, and console actions to delete the deployed Guidance.
-- If the Guidance requires manual deletion of resources, such as the content of an S3 bucket, please specify.
+- Delete the EC2 instance.
+- Delete corresponding records in DynamoDB.
+- Delete IAM role and policy.
