@@ -37,6 +37,9 @@ This is a comprehensive framework designed to enable Generative BI capabilities 
 
 ![Screenshot](./assets/screenshot-genbi.png)
 
+![Screenshot](./assets/architecture.png)
+_Architecture Diagram_
+ 
 ### Cost
 
 As of May, 2024, the cost for running this Guidance with the default settings in the _us-west-2_ is approximately $476.74 per month for processing 2000 requests.
@@ -45,15 +48,15 @@ As of May, 2024, the cost for running this Guidance with the default settings in
 
 The following table provides a sample cost breakdown for deploying this Guidance with the default parameters in the US East (N. Virginia) Region for one month.
 
-| AWS service  | Dimensions | Cost [USD] |
+| AWS service  | Dimensions | Cost [USD] per Month |
 | ----------- | ------------ | ------------ |
-| Amazon EC2 | 1 instance t3.large | $ 60.74month |
+| Amazon EC2 | 1 instance t3.large | $ 60.74 |
 | Amazon DynamoDB | 25 provisioned write & read capacity units per month | $ 0.00 |
 | Amazon Bedrock | 2000 requests per month, with each request consuming 10000 input tokens and 1000 output tokens | $ 416.00 |
 
-## Prerequisites (required)
+## Prerequisites
 
-### Operating System (required)
+### Operating System
 
 **Example:**
 “These deployment instructions are optimized to best work on **<Amazon Linux 2023 AMI>**.  Deployment in another OS may require additional steps.”
