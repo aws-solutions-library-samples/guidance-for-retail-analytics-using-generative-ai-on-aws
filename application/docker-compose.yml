@@ -47,6 +47,7 @@ services:
       - opensearch-net
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:2.11.1
+    read_only: true
     container_name: opensearch-dashboards
     ports:
       - 5601:5601
@@ -85,11 +86,27 @@ services:
       - .env
     ports:
       - "80:8501"
+      - "8765:8765"
     expose:
       - "8501"
     volumes:
       - ./config_files:/app/config_files
       - ./deployment:/app/deployment
+    networks:
+      - opensearch-net
+  api:
+    container_name: nlq-api
+    build:
+      context: .
+      dockerfile: Dockerfile-api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    expose:
+      - "8000"
+    volumes:
+      - ./config_files:/app/config_files
     networks:
       - opensearch-net
 volumes:

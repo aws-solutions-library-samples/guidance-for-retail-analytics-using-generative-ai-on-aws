@@ -1,5 +1,16 @@
+import logging
+
 from opensearchpy import OpenSearch
-from utils import opensearch
+from opensearchpy.helpers import bulk
+
+from utils.llm import create_vector_embedding_with_bedrock
+
+logger = logging.getLogger(__name__)
+
+def put_bulk_in_opensearch(list, client):
+    logger.info(f"Putting {len(list)} documents in OpenSearch")
+    success, failed = bulk(client, list)
+    return success, failed
 
 class OpenSearchDao:
 
@@ -16,43 +27,125 @@ class OpenSearchDao:
             ssl_assert_hostname=False,
             ssl_show_warn=False
         )
+
     def retrieve_samples(self, index_name, profile_name):
         # search all docs in the index filtered by profile_name
         search_query = {
-          "sort": [
-            {
-              "_score": {
-                "order": "desc"
-              }
-            }
-          ],
-          "_source": {
-              "includes": ["text", "sql"]
-          },
-          "size": 20,
-          "query": {
-            "bool": {
-              "must": [],
-              "filter": [
+            "sort": [
                 {
-                  "match_all": {}
-                },
-                {
-                  "match_phrase": {
-                    "profile": profile_name
-                  }
+                    "_score": {
+                        "order": "desc"
+                    }
                 }
-              ],
-              "should": [],
-              "must_not": []
+            ],
+            "_source": {
+                "includes": ["text", "sql"]
+            },
+            "size": 5000,
+            "query": {
+                "bool": {
+                    "must": [],
+                    "filter": [
+                        {
+                            "match_all": {}
+                        },
+                        {
+                            "match_phrase": {
+                                "profile": profile_name
+                            }
+                        }
+                    ],
+                    "should": [],
+                    "must_not": []
+                }
             }
-          }
         }
 
         # Execute the search query
         response = self.opensearch_client.search(
             body=search_query,
             index=index_name
+        )
+
+        return response['hits']['hits']
+
+    def retrieve_entity_samples(self, index_name, profile_name):
+        # search all docs in the index filtered by profile_name
+        search_query = {
+            "sort": [
+                {
+                    "_score": {
+                        "order": "desc"
+                    }
+                }
+            ],
+            "_source": {
+                "includes": ["entity", "comment"]
+            },
+            "size": 5000,
+            "query": {
+                "bool": {
+                    "must": [],
+                    "filter": [
+                        {
+                            "match_all": {}
+                        },
+                        {
+                            "match_phrase": {
+                                "profile": profile_name
+                            }
+                        }
+                    ],
+                    "should": [],
+                    "must_not": []
+                }
+            }
+        }
+
+        response = self.opensearch_client.search(
+        body=search_query,
+        index=index_name
+        )
+
+        return response['hits']['hits']
+
+    def retrieve_agent_cot_samples(self, index_name, profile_name):
+        # search all docs in the index filtered by profile_name
+        search_query = {
+            "sort": [
+                {
+                    "_score": {
+                        "order": "desc"
+                    }
+                }
+            ],
+            "_source": {
+                "includes": ["query", "comment"]
+            },
+            "size": 5000,
+            "query": {
+                "bool": {
+                    "must": [],
+                    "filter": [
+                        {
+                            "match_all": {}
+                        },
+                        {
+                            "match_phrase": {
+                                "profile": profile_name
+                            }
+                        }
+                    ],
+                    "should": [],
+                    "must_not": []
+                }
+            }
+        }
+
+        # Execute the search query
+        response = self.opensearch_client.search(
+        body=search_query,
+        index=index_name
         )
 
         return response['hits']['hits']
@@ -66,9 +159,71 @@ class OpenSearchDao:
             'vector_field': embedding
         }
 
-        success, failed = opensearch.put_bulk_in_opensearch([record], self.opensearch_client)
+        success, failed = put_bulk_in_opensearch([record], self.opensearch_client)
+        return success == 1
+
+    def add_entity_sample(self, index_name, profile_name, entity, comment, embedding):
+        record = {
+            '_index': index_name,
+            'entity': entity,
+            'comment': comment,
+            'profile': profile_name,
+            'vector_field': embedding
+        }
+
+        success, failed = put_bulk_in_opensearch([record], self.opensearch_client)
+        return success == 1
+
+    def add_agent_cot_sample(self, index_name, profile_name, query, comment, embedding):
+        record = {
+            '_index': index_name,
+            'query': query,
+            'comment': comment,
+            'profile': profile_name,
+            'vector_field': embedding
+        }
+
+        success, failed = put_bulk_in_opensearch([record], self.opensearch_client)
         return success == 1
 
     def delete_sample(self, index_name, profile_name, doc_id):
         return self.opensearch_client.delete(index=index_name, id=doc_id)
 
+    def search_sample(self, profile_name, top_k, index_name, query):
+        records_with_embedding = create_vector_embedding_with_bedrock(query, index_name=index_name)
+        return self.search_sample_with_embedding(profile_name, top_k, index_name,  records_with_embedding['vector_field'])
+
+
+    def search_sample_with_embedding(self, profile_name, top_k, index_name, query_embedding):
+        search_query = {
+            "size": top_k,  # Adjust the size as needed to retrieve more or fewer results
+            "query": {
+                "bool": {
+                    "filter": {
+                        "match_phrase": {
+                            "profile": profile_name
+                        }
+                    },
+                    "must": [
+                        {
+                            "knn": {
+                                "vector_field": {
+                                    # Make sure 'vector_field' is the name of your vector field in OpenSearch
+                                    "vector": query_embedding,
+                                    "k": top_k  # Adjust k as needed to retrieve more or fewer nearest neighbors
+                                }
+                            }
+                        }
+                    ]
+                }
+
+            }
+        }
+
+        # Execute the search query
+        response = self.opensearch_client.search(
+            body=search_query,
+            index=index_name
+        )
+
+        return response['hits']['hits']

@@ -1,19 +1,23 @@
 import streamlit as st
 import sqlalchemy as db
 from dotenv import load_dotenv
-from loguru import logger
+import logging 
 from nlq.business.connection import ConnectionManagement
 from nlq.business.profile import ProfileManagement
+from utils.navigation import make_sidebar
+
+
+logger = logging.getLogger(__name__)
 
 def new_profile_clicked():
     st.session_state.profile_page_mode = 'new'
     st.session_state.current_profile_name = None
 
-
 def main():
     load_dotenv()
     logger.info('start data profile management')
     st.set_page_config(page_title="Data Profile Management", )
+    make_sidebar()
 
     if 'profile_page_mode' not in st.session_state:
         st.session_state['profile_page_mode'] = 'default'
@@ -26,7 +30,7 @@ def main():
         if st.session_state.current_profile_name:
             st.session_state.profile_page_mode = 'update'
 
-        st.button('新建...', on_click=new_profile_clicked)
+        st.button('Create new profile...', on_click=new_profile_clicked)
 
     if st.session_state.profile_page_mode == 'new':
         st.subheader('Create New Data Profile')
@@ -49,6 +53,10 @@ def main():
                     ProfileManagement.add_profile(profile_name, selected_conn_name, schema_names, selected_tables, comments)
                     st.success('Profile created.')
                     st.session_state.profile_page_mode = 'default'
+                    table_definitions = ConnectionManagement.get_table_definition_by_config(conn_config, schema_names,
+                                                                                        selected_tables)
+                    st.write(table_definitions)
+                    ProfileManagement.update_table_def(profile_name, table_definitions, merge_before_update=True)
 
                 # st.session_state.profile_page_mode = 'default'
     elif st.session_state.profile_page_mode == 'update' and st.session_state.current_profile_name is not None:

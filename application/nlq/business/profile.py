@@ -1,6 +1,7 @@
-from loguru import logger
+import logging
 from nlq.data_access.dynamo_profile import ProfileConfigDao, ProfileConfigEntity
 
+logger = logging.getLogger(__name__)
 
 class ProfileManagement:
     profile_config_dao = ProfileConfigDao()
@@ -23,6 +24,7 @@ class ProfileManagement:
                 'hints': '',
                 'search_samples': [],
                 'comments':  profile.comments,
+                'prompt_map': profile.prompt_map
             }
 
         return profile_map
@@ -57,7 +59,7 @@ class ProfileManagement:
                 # print(old_tables_info)
                 for table_name, table_info in tables_info.items():
                     # copy annotation to new table info if old table has annotation
-                    if table_name in old_tables_info:
+                    if table_name in old_tables_info and 'tbl_a' in old_tables_info[table_name]:
                         table_info['tbl_a'] = old_tables_info[table_name]['tbl_a']
                         table_info['col_a'] = old_tables_info[table_name]['col_a']
 
@@ -65,3 +67,8 @@ class ProfileManagement:
 
         cls.profile_config_dao.update_table_def(profile_name, tables_info)
         logger.info(f"Table definition updated")
+
+    @classmethod
+    def update_table_prompt_map(cls, profile_name, prompt_map):
+        cls.profile_config_dao.update_table_prompt_map(profile_name, prompt_map)
+        logger.info(f"System and user prompt updated")

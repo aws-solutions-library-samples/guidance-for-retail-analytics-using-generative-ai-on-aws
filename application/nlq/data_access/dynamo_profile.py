@@ -1,22 +1,29 @@
+import os
+
 import boto3
-from loguru import logger
+import logging
+from typing import List
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
+from utils.prompts.generate_prompt import prompt_map_dict
 
+logger = logging.getLogger(__name__)
 
 # DynamoDB table name
 PROFILE_CONFIG_TABLE_NAME = 'NlqProfileConfig'
-
+DYNAMODB_AWS_REGION = os.environ.get('DYNAMODB_AWS_REGION')
 
 class ProfileConfigEntity:
 
-    def __init__(self, profile_name: str, conn_name: str, schemas: list[str], tables: list[str], comments: str, tables_info: dict=None):
+    def __init__(self, profile_name: str, conn_name: str, schemas: List[str], tables: List[str], comments: str,
+                 tables_info: dict = None, prompt_map: dict = prompt_map_dict, **kwargs):
         self.profile_name = profile_name
         self.conn_name = conn_name
         self.schemas = schemas
         self.tables = tables
         self.comments = comments
         self.tables_info = tables_info
+        self.prompt_map = prompt_map
 
     def to_dict(self):
         """Convert to DynamoDB item format"""
@@ -25,7 +32,8 @@ class ProfileConfigEntity:
             'profile_name': self.profile_name,
             'schemas': self.schemas,
             'tables': self.tables,
-            'comments': self.comments
+            'comments': self.comments,
+            'prompt_map': self.prompt_map
         }
         if self.tables_info:
             base_props['tables_info'] = self.tables_info
@@ -35,7 +43,7 @@ class ProfileConfigEntity:
 class ProfileConfigDao:
 
     def __init__(self, table_name_prefix=''):
-        self.dynamodb = boto3.resource('dynamodb')
+        self.dynamodb = boto3.resource('dynamodb', region_name=DYNAMODB_AWS_REGION)
         self.table_name = table_name_prefix + PROFILE_CONFIG_TABLE_NAME
         if not self.exists():
             self.create_table()
@@ -81,10 +89,7 @@ class ProfileConfigDao:
                     {"AttributeName": "profile_name", "AttributeType": "S"},
                     # {"AttributeName": "conn_name", "AttributeType": "S"},
                 ],
-                ProvisionedThroughput={
-                    "ReadCapacityUnits": 2,
-                    "WriteCapacityUnits": 1,
-                },
+                BillingMode='PAY_PER_REQUEST',
             )
             self.table.wait_until_exists()
             logger.info(f"DynamoDB Table {self.table_name} created")
@@ -123,6 +128,26 @@ class ProfileConfigDao:
                 Key={"profile_name": profile_name},
                 UpdateExpression="set tables_info=:info",
                 ExpressionAttributeValues={":info": tables_info},
+                ReturnValues="UPDATED_NEW",
+            )
+        except ClientError as err:
+            logger.error(
+                "Couldn't update profile %s in table %s. Here's why: %s: %s",
+                profile_name,
+                self.table.name,
+                err.response["Error"]["Code"],
+                err.response["Error"]["Message"],
+            )
+            raise
+        else:
+            return response["Attributes"]
+
+    def update_table_prompt_map(self, profile_name, prompt_map):
+        try:
+            response = self.table.update_item(
+                Key={"profile_name": profile_name},
+                UpdateExpression="set prompt_map=:pm",
+                ExpressionAttributeValues={":pm": prompt_map},
                 ReturnValues="UPDATED_NEW",
             )
         except ClientError as err:
