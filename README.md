@@ -131,7 +131,90 @@ Please go to FrontendEndpoint and StreamlitEndpoint to see if the endpoints func
 
 ## Running the Guidance 
 
-After the CDK stack is deployed, wait around 40 minutes for the initialization to complete. Then, open the Web UI in your browser: https://your-public-dns
+After the CDK stack is deployed, wait around 40 minutes for the initialization to complete. Then, open the Admin Web UI in your browser: https://your-public-dns
+
+1. **Create Data Connection**
+   Mainly introduces how to connect to the database.
+   - Select the `Data_Connection_Management` page.
+   <img width="696" alt="image" src="https://github.com/aws-samples/generative-bi-using-rag/assets/12369067/c12eebde-5474-4322-bee6-3677908dc5c5">
+   - Click `Test Connection` to test the database connection.
+   - Click `Add Connection` to create a new database connection.
+
+2. **Background**
+
+   After creating the database connection, you can select different tables from the database to create different Data Profiles.
+
+3. **Create Data Profile**
+   - Click `Data_Profile_Management`.
+   <img width="728" alt="image" src="https://github.com/aws-samples/generative-bi-using-rag/assets/12369067/f5a35306-0d64-4d85-99a9-c95e6d510fc3">
+     - Fill in the `Data Profile Name`.
+     - Select the database connection.
+     - Select the relevant data table.
+     - Click `Create Data Profile`.
+
+4. **Create Schema Description**
+   After creating a Data Profile, to help the large language model better understand the data tables, it is necessary to add relevant descriptions to the schema of the data tables.
+   The more detailed the description of the schema, the better. For some fields, try to provide as much detail as possible, including example data, synonyms, operations used in calculations, etc.
+   For example:
+     - Time field: provide the time format.
+     - Boolean field: indicate whether the data is 1/0 or True/False.
+   To create a Schema Description:
+   - Click `Schema_Description_Management`.
+
+   Table annotation: description of the data table.
+   - Name: name of the field (automatically extracted by the system).
+   - Datatype: description of the data type of the field (automatically extracted by the system).
+   - Comment: explanation of the field, interpretation of the field's meaning.
+   - Annotation: synonyms or other notes for the field, example data for the field (including common data examples), and instructions for operations on the field, such as using sum, count, etc.
+
+5. **Modify Prompts**
+   For different industries, it is necessary to adjust the Prompts accordingly.
+
+   <img width="651" alt="image" src="https://github.com/aws-samples/generative-bi-using-rag/assets/12369067/653599c6-9199-42f4-8da5-bf734119446c">
+
+   - Intent Prompt
+     - Mainly for intent recognition. Currently, there are four main types of intents: knowledge base intent, data query intent, refusal query intent, and chain of thought intent.
+   - Knowledge Prompt
+     - When a knowledge base intent is recognized, it answers related knowledge base questions. Currently, this is implemented through PE, and later this query can be connected to a knowledge base solution.
+   - Text2SQL Prompt
+     - The key Prompt for Text2SQL.
+   - Data Summary Prompt
+     - The main Prompt for data summarization, providing data to the LLM to generate summary text.
+   - Data Visualization Prompt
+     - Using the LLM to select appropriate visualization charts.
+   - Agent Task Prompt
+     - Using the understanding ability of the LLM combined with business knowledge to break down complex business problems into multiple dimensional sub-tasks.
+   - Agent Data Analyse Prompt
+     - For complex business problems, after breaking them down into multiple sub-tasks, each sub-task involves data queries. After the queries are completed, the data and questions are given to the LLM for data analysis.
+   - Suggest Question Prompt
+     - Generating suggested questions based on the user's query.
+
+6. **Add Business Knowledge**
+   Since the large language model may lack relevant industry knowledge, it is necessary to supplement it with relevant business knowledge.
+
+   Add business entity information:
+   - Click `Entity_Management`.
+
+   ![image](https://github.com/aws-samples/generative-bi-using-rag/assets/12369067/8aa6446d-e520-4d76-9139-579a2db09bbe)
+
+   - Entity: mainly write the name of the entity.
+   - Comment: mainly write the explanation of the entity, such as which field the entity needs to query, what the value of the entity is in the table, the calculation logic of specific formulas, explanations of business names, etc.
+
+   Add sample question SQL information:
+   - Click `Index_Management`.
+
+   ![image](https://github.com/aws-samples/generative-bi-using-rag/assets/12369067/9e8bf49c-02d5-430e-b857-0c2afcfae78a)
+
+   - Question: mainly the user's question.
+   - Answer (SQL): mainly the query SQL for the question.
+
+   Add analysis ideas for complex questions:
+   - Click `Agent_Cot_Management`.
+
+   ![image](https://github.com/aws-samples/generative-bi-using-rag/assets/12369067/6ff79825-328e-4d9c-bc16-a0b1da654621)
+
+   - Query: user's complex business question.
+   - Comment: analysis ideas for the question, in dict structure, where the key is task_1, task_2, ..., and the value is the sub-tasks for the question.
 
 ## Cleanup 
 - Delete the CDK stack:
