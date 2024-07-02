@@ -125,6 +125,9 @@ GenBiMainStack.APIEndpoint = XXXXX.us-west-2.elb.amazonaws.com
 GenBiMainStack.FrontendEndpoint = XXXXX.us-west-2.elb.amazonaws.com
 GenBiMainStack.StreamlitEndpoint = XXXXX.us-west-2.elb.amazonaws.com
 ```
+## Deployment Validation
+
+Please go to FrontendEndpoint and StreamlitEndpoint to see if the endpoints function well.
 
 ## Running the Guidance 
 
