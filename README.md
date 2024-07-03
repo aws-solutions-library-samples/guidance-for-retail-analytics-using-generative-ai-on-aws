@@ -1,8 +1,8 @@
-# Generative BI using RAG on AWS
+# Guidance for Retail Analytics with Generative AI on AWS
 
 ## Introduction
 
-A NLQ(Natural Language Query) demo using Amazon Bedrock, Amazon OpenSearch with RAG technique.
+A NLQ(Natural Language Query) guidance using Amazon Bedrock, Amazon OpenSearch with RAG technique for Retail Analytics.
 
 ![Screenshot](./assets/aws_architecture.png)
 
