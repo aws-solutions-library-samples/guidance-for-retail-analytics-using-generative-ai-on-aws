@@ -6,6 +6,15 @@ A NLQ(Natural Language Query) guidance using Amazon Bedrock, Amazon OpenSearch w
 
 ![Screenshot](./assets/aws_architecture.png)
 
+This data showcased how we used this guidance to generate SQL statements in analyzing online retail customer behavior data. Use the steps in [Next Steps](#next-steps) to configure the data in ```./assets/data/init_mysql_db.sql```
+
+We can then ask questions like:
+1. What are the most frequently purchased products in a specific category?
+2. How often do customers abandon their shopping carts before completing a purchase?
+3. What is the average order value on the website?
+4. What is the average time spent by a user on the website before making a purchase?
+5. How many customers return to make a second purchase within a specific time frame?
+
 
 ## Table of Content
 1. [Overview](#overview)
