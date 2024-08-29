@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Union
 from pydantic import BaseModel
 
 
@@ -9,7 +9,7 @@ class Question(BaseModel):
     visualize_results_flag: bool = True
     intent_ner_recognition_flag: bool = True
     agent_cot_flag: bool = True
-    profile_name: str = "shopping-demo"
+    profile_name: str
     explain_gen_process_flag: bool = True
     gen_suggested_question_flag: bool = False
     answer_with_insights: bool = False
@@ -17,15 +17,29 @@ class Question(BaseModel):
     top_p: float = 0.9
     max_tokens: int = 2048
     temperature: float = 0.01
-    context_window: int = 3
+    context_window: int = 5
     session_id: str = "-1"
     user_id: str = "admin"
+    username: str = ''
 
 
 class Example(BaseModel):
     score: float
     question: str
     answer: str
+
+
+class HistoryRequest(BaseModel):
+    user_id: str
+    profile_name: str
+    log_type: str = "chat_history"
+
+
+class HistorySessionRequest(BaseModel):
+    session_id: str
+    user_id: str
+    profile_name: str
+    log_type: str = "chat_history"
 
 
 class QueryEntity(BaseModel):
@@ -39,6 +53,8 @@ class FeedBackInput(BaseModel):
     query: str
     query_intent: str
     query_answer: str
+    session_id: str = "-1"
+    user_id: str = "admin"
 
 
 class Option(BaseModel):
@@ -78,10 +94,36 @@ class AgentSearchResult(BaseModel):
     agent_summary: str
 
 
+class AskReplayResult(BaseModel):
+    query_rewrite: str
+
+
+class AskEntitySelect(BaseModel):
+    entity_select: str
+    entity_info: dict[str, Any]
+
+
 class Answer(BaseModel):
     query: str
+    query_rewrite: str = ""
     query_intent: str
     knowledge_search_result: KnowledgeSearchResult
     sql_search_result: SQLSearchResult
     agent_search_result: AgentSearchResult
+    ask_rewrite_result: AskReplayResult
     suggested_question: list[str]
+    ask_entity_select: AskEntitySelect
+
+
+class Message(BaseModel):
+    type: str
+    content: Union[str, Answer]
+
+
+class HistoryMessage(BaseModel):
+    session_id: str
+    messages: list[Message]
+
+
+class ChatHistory(BaseModel):
+    messages: list[HistoryMessage]

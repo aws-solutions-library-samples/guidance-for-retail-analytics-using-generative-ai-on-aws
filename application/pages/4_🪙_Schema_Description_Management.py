@@ -12,16 +12,40 @@ def main():
     st.set_page_config(page_title="Schema Management", )
     make_sidebar()
 
-    # if 'profile_page_mode' not in st.session_state:
-    #     st.session_state['index_mgt_mode'] = 'default'
+    if 'current_profile' not in st.session_state:
+        st.session_state['current_profile'] = ''
+
+    if "update_profile" not in st.session_state:
+        st.session_state.update_profile = False
+
+    if "profiles_list" not in st.session_state:
+        st.session_state["profiles_list"] = []
+
+    if 'profiles' not in st.session_state:
+        all_profiles = ProfileManagement.get_all_profiles_with_info()
+        st.session_state['profiles'] = all_profiles
+        st.session_state["profiles_list"] = list(all_profiles.keys())
+
+    if st.session_state.update_profile:
+        logger.info("session_state update_profile get_all_profiles_with_info")
+        all_profiles = ProfileManagement.get_all_profiles_with_info()
+        st.session_state["profiles_list"] = list(all_profiles.keys())
+        st.session_state['profiles'] = all_profiles
+        st.session_state.update_profile = False
 
     with st.sidebar:
         st.title("Schema Management")
-        current_profile = st.selectbox("My Data Profiles", ProfileManagement.get_all_profiles(),
+        all_profiles_list = st.session_state["profiles_list"]
+        if st.session_state.current_profile != "" and st.session_state.current_profile in all_profiles_list:
+            profile_index = all_profiles_list.index(st.session_state.current_profile)
+            current_profile = st.selectbox("My Data Profiles", all_profiles_list, index=profile_index)
+        else:
+            current_profile = st.selectbox("My Data Profiles", all_profiles_list,
                                        index=None,
                                        placeholder="Please select data profile...", key='current_profile_name')
 
     if current_profile is not None:
+        st.session_state['current_profile'] = current_profile
         profile_detail = ProfileManagement.get_profile_by_name(current_profile)
 
         selected_table = st.selectbox("Tables", profile_detail.tables, index=None, placeholder="Please select a table")
@@ -38,32 +62,19 @@ def main():
 
                 if column_anno is not None:
                     col_annotation_text = column_anno
+                    col_annotation = st.text_area('Column annotation', col_annotation_text, height=500)
                 else:
-                # st.write(table_ddl)
-                    print(table_ddl)
-                    col_annotation_text = ''
-                    start_flag = False
-                    for li in table_ddl.split('\n'):
-                        li = li.strip()
-                        if li[0] == '(':
-                            start_flag = True
-                            continue
-                        if li[0] == ')':
-                            start_flag = False
-                            continue
-                        if start_flag:
-                            li_parts = li.split(' ')
-                            col_name = li_parts[0]
-                            col_type = li_parts[1]
-                            print(li_parts[2:])
-                            col_comment = ' '.join(li_parts[2:]).replace(',', '').replace('--', '')
-                            # print(li.split(' '))
-                            col_annotation_text += f'- name: {col_name}, datatype: {col_type}, comment: {col_comment}\n'
-                            col_annotation_text += '  annotation: \n'
-
-                col_annotation = st.text_area('Column annotation', col_annotation_text, height=500)
-
+                    col_annotation = st.text_area('Column annotation', table_ddl, height=400, help='''e.g. CREATE TABLE employees (
+    id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Unique identifier for each employee',
+    name VARCHAR(100) NOT NULL COMMENT 'Employee name', 
+    position VARCHAR(50) NOT NULL COMMENT 'Job position, 2 possible values: 'Engineer', 'Manager',
+    salary DECIMAL(10, 2) COMMENT 'Salary in USD, e.g., 1000.00',
+    date DATE NOT NULL COMMENT 'Date of joining the company'
+    ...
+);
+    ''')
                 if st.button('Save', type='primary'):
+                    st.session_state.update_profile = True
                     origin_tables_info = profile_detail.tables_info
                     origin_table_info = origin_tables_info[selected_table]
                     origin_table_info['tbl_a'] = tbl_annotation

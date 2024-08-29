@@ -7,20 +7,22 @@ from utils.prompt import POSTGRES_DIALECT_PROMPT_CLAUDE3, MYSQL_DIALECT_PROMPT_C
 import os
 import logging
 from langchain_core.output_parsers import JsonOutputParser
-from utils.prompts.generate_prompt import generate_llm_prompt, generate_sagemaker_intent_prompt, \
-    generate_sagemaker_sql_prompt, generate_sagemaker_explain_prompt, generate_agent_cot_system_prompt, \
+from utils.prompts.generate_prompt import generate_llm_prompt, generate_agent_cot_system_prompt, \
     generate_intent_prompt, generate_knowledge_prompt, generate_data_visualization_prompt, \
     generate_agent_analyse_prompt, generate_data_summary_prompt, generate_suggest_question_prompt, \
     generate_query_rewrite_prompt
 
-from utils.env_var import bedrock_ak_sk_info
+from utils.env_var import bedrock_ak_sk_info, BEDROCK_REGION, BEDROCK_EMBEDDING_MODEL, SAGEMAKER_EMBEDDING_REGION, \
+    SAGEMAKER_SQL_REGION
+from utils.tool import convert_timestamps_to_str
+
+from nlq.business.model import ModelManagement
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-BEDROCK_AWS_REGION = os.environ.get('BEDROCK_REGION', 'us-west-2')
-
 config = Config(
-    region_name=BEDROCK_AWS_REGION,
+    region_name=BEDROCK_REGION,
     signature_version='v4',
     retries={
         'max_attempts': 10,
@@ -33,6 +35,7 @@ config = Config(
 
 bedrock = None
 json_parse = JsonOutputParser()
+embedding_sagemaker_client = None
 sagemaker_client = None
 
 
@@ -43,7 +46,7 @@ def get_bedrock_client():
             bedrock = boto3.client(service_name='bedrock-runtime', config=config)
         else:
             bedrock = boto3.client(
-                service_name='bedrock-runtime',  config=config,
+                service_name='bedrock-runtime', config=config,
                 aws_access_key_id=bedrock_ak_sk_info['access_key_id'],
                 aws_secret_access_key=bedrock_ak_sk_info['secret_access_key'])
     return bedrock
@@ -142,29 +145,60 @@ def invoke_mixtral_8x7b(model_id, system_prompt, messages, max_tokens, with_resp
         raise
 
 
+def get_embedding_sagemaker_client():
+    global embedding_sagemaker_client
+    if not embedding_sagemaker_client:
+        if SAGEMAKER_EMBEDDING_REGION is not None and SAGEMAKER_EMBEDDING_REGION != "":
+            embedding_sagemaker_client = boto3.client(service_name='sagemaker-runtime',
+                                                      region_name=SAGEMAKER_EMBEDDING_REGION)
+        else:
+            embedding_sagemaker_client = boto3.client(service_name='sagemaker-runtime')
+    return embedding_sagemaker_client
+
+
 def get_sagemaker_client():
     global sagemaker_client
     if not sagemaker_client:
-        sagemaker_client = boto3.client(service_name='sagemaker-runtime')
+        if SAGEMAKER_SQL_REGION is not None and SAGEMAKER_SQL_REGION != "":
+            sagemaker_client = boto3.client(service_name='sagemaker-runtime',
+                                            region_name=SAGEMAKER_SQL_REGION)
+        else:
+            sagemaker_client = boto3.client(service_name='sagemaker-runtime')
     return sagemaker_client
 
-
-def invoke_model_sagemaker_endpoint(endpoint_name, body, with_response_stream=False):
+def invoke_model_sagemaker_endpoint(endpoint_name, body, model_type="LLM", with_response_stream=False):
     if with_response_stream:
-        response = get_sagemaker_client().invoke_endpoint_with_response_stream(
-            EndpointName=endpoint_name,
-            Body=body,
-            ContentType="application/json",
-        )
+        if model_type == "LLM":
+            response = get_sagemaker_client().invoke_endpoint_with_response_stream(
+                EndpointName=endpoint_name,
+                Body=body,
+                ContentType="application/json",
+            )
+            return response
+        else:
+            response = get_embedding_sagemaker_client().invoke_endpoint_with_response_stream(
+                EndpointName=endpoint_name,
+                Body=body,
+                ContentType="application/json",
+            )
         return response
     else:
-        response = get_sagemaker_client().invoke_endpoint(
-            EndpointName=endpoint_name,
-            Body=body,
-            ContentType="application/json",
-        )
-        response_body = json.loads(response.get('Body').read())
-        return response_body
+        if model_type == "LLM":
+            response = get_sagemaker_client().invoke_endpoint(
+                EndpointName=endpoint_name,
+                Body=body,
+                ContentType="application/json",
+            )
+            response_body = json.loads(response.get('Body').read())
+            return response_body
+        else:
+            response = get_embedding_sagemaker_client().invoke_endpoint(
+                EndpointName=endpoint_name,
+                Body=body,
+                ContentType="application/json",
+            )
+            response_body = json.loads(response.get('Body').read())
+            return response_body
 
 
 def claude_select_table():
@@ -256,6 +290,7 @@ def invoke_llm_model(model_id, system_prompt, user_prompt, max_tokens=2048, with
     logger.info(f'{system_prompt=}')
     logger.info(f'{messages=}')
     response = ""
+    model_config = {}
     try:
         if model_id.startswith('anthropic.claude-3'):
             response = invoke_model_claude3(model_id, system_prompt, messages, max_tokens, with_response_stream)
@@ -263,11 +298,25 @@ def invoke_llm_model(model_id, system_prompt, user_prompt, max_tokens=2048, with
             response = invoke_mixtral_8x7b(model_id, system_prompt, messages, max_tokens, with_response_stream)
         elif model_id.startswith('meta.llama3-70b'):
             response = invoke_llama_70b(model_id, system_prompt, user_prompt, max_tokens, with_response_stream)
+        elif model_id.startswith('sagemaker.'):
+            model_config = ModelManagement.get_model_by_id(model_id)
+            prompt_template = model_config['prompt_template']
+            input_payload = model_config['input_payload']
+            prompt = prompt_template.replace("SYSTEM_PROMPT", system_prompt).replace("USER_PROMPT", user_prompt)
+            input_payload = input_payload.replace("INPUT", prompt)
+            logger.info(f'{input_payload=}')
+            body = json.loads(input_payload)
+            endpoint_name = model_id[len('sagemaker.'):]
+            response = invoke_model_sagemaker_endpoint(endpoint_name, body, "LLM", with_response_stream)
         if with_response_stream:
             return response
         else:
             if model_id.startswith('meta.llama3-70b'):
                 return response["generation"]
+            elif model_id.startswith('sagemaker.'):
+                output_format = model_config['output_format']
+                response = eval(output_format)
+                return response
             else:
                 final_response = response.get("content")[0].get("text")
                 return final_response
@@ -277,45 +326,12 @@ def invoke_llm_model(model_id, system_prompt, user_prompt, max_tokens=2048, with
 
 
 def text_to_sql(ddl, hints, prompt_map, search_box, sql_examples=None, ner_example=None, model_id=None, dialect='mysql',
-                model_provider=None, with_response_stream=False):
+                model_provider=None, with_response_stream=False, additional_info=''):
     user_prompt, system_prompt = generate_llm_prompt(ddl, hints, prompt_map, search_box, sql_examples, ner_example,
                                                      model_id, dialect=dialect)
     max_tokens = 4096
-    response = invoke_llm_model(model_id, system_prompt, user_prompt, max_tokens, with_response_stream)
+    response = invoke_llm_model(model_id, system_prompt, user_prompt + additional_info, max_tokens, with_response_stream)
     return response
-
-
-def sagemaker_to_explain(endpoint_name: str, sql: str, with_response_stream=False):
-    body = json.dumps({"query": generate_sagemaker_explain_prompt(sql),
-                       "stream": with_response_stream, })
-    response = invoke_model_sagemaker_endpoint(endpoint_name, body, with_response_stream)
-    logger.info(response)
-    if with_response_stream:
-        return response
-    else:
-        # TODO may need to modify response
-        return response
-
-
-def sagemaker_to_sql(ddl, hints, search_box, endpoint_name, sql_examples=None, ner_example=None, dialect='mysql',
-                     model_provider=None, with_response_stream=False):
-    body = json.dumps({"prompt": generate_sagemaker_sql_prompt(ddl, hints, search_box, sql_examples, ner_example,
-                                                               dialect=dialect),
-                       "stream": with_response_stream, })
-    response = invoke_model_sagemaker_endpoint(endpoint_name, body, with_response_stream)
-    logger.info(response)
-    if with_response_stream:
-        return response
-    else:
-        # TODO Must modify response
-        final_response = '''<query>SELECT i.`item_id`, i.`product_description`, COUNT(it.`event_type`) AS total_purchases
-FROM `items` i
-JOIN `interactions` it ON i.`item_id` = it.`item_id`
-WHERE it.`event_type` = 'purchase'
-GROUP BY i.`item_id`, i.`product_description`
-ORDER BY total_purchases DESC
-LIMIT 10;</query>'''
-        return final_response
 
 
 def get_agent_cot_task(model_id, prompt_map, search_box, ddl, agent_cot_example=None):
@@ -323,21 +339,11 @@ def get_agent_cot_task(model_id, prompt_map, search_box, ddl, agent_cot_example=
     user_prompt, system_prompt = generate_agent_cot_system_prompt(ddl, prompt_map, search_box, model_id,
                                                                   agent_cot_example)
     try:
-        intent_endpoint = os.getenv("SAGEMAKER_ENDPOINT_INTENT")
-        if intent_endpoint:
-            # TODO may need to modify the prompt
-            body = json.dumps(
-                {"query": generate_sagemaker_intent_prompt(search_box, meta_instruction=SEARCH_INTENT_PROMPT_CLAUDE3)})
-            response = invoke_model_sagemaker_endpoint(intent_endpoint, body)
-            logger.info(f'{response=}')
-            intent_result_dict = json_parse.parse(response)
-            return intent_result_dict
-        else:
-            max_tokens = 2048
-            final_response = invoke_llm_model(model_id, system_prompt, user_prompt, max_tokens, False)
-            logger.info(f'{final_response=}')
-            intent_result_dict = json_parse.parse(final_response)
-            return intent_result_dict
+        max_tokens = 2048
+        final_response = invoke_llm_model(model_id, system_prompt, user_prompt, max_tokens, False)
+        logger.info(f'{final_response=}')
+        intent_result_dict = json_parse.parse(final_response)
+        return intent_result_dict
     except Exception as e:
         logger.error("get_agent_cot_task is error:{}".format(e))
         return default_agent_cot_task
@@ -361,48 +367,27 @@ def data_analyse_tool(model_id, prompt_map, search_box, sql_data, search_type):
 def get_query_intent(model_id, search_box, prompt_map):
     default_intent = {"intent": "normal_search"}
     try:
-        intent_endpoint = os.getenv("SAGEMAKER_ENDPOINT_INTENT")
-        if intent_endpoint:
-            # TODO may need to modify the prompt
-            body = json.dumps(
-                {"query": generate_sagemaker_intent_prompt(search_box, meta_instruction=SEARCH_INTENT_PROMPT_CLAUDE3)})
-            response = invoke_model_sagemaker_endpoint(intent_endpoint, body)
-            logger.info(f'{response=}')
-            intent_result_dict = json_parse.parse(response)
-            return intent_result_dict
-        else:
-            user_prompt, system_prompt = generate_intent_prompt(prompt_map, search_box, model_id)
-            max_tokens = 2048
-            final_response = invoke_llm_model(model_id, system_prompt, user_prompt, max_tokens, False)
-            logger.info(f'{final_response=}')
-            intent_result_dict = json_parse.parse(final_response)
-            return intent_result_dict
+        user_prompt, system_prompt = generate_intent_prompt(prompt_map, search_box, model_id)
+        max_tokens = 2048
+        final_response = invoke_llm_model(model_id, system_prompt, user_prompt, max_tokens, False)
+        logger.info(f'{final_response=}')
+        intent_result_dict = json_parse.parse(final_response)
+        return intent_result_dict
     except Exception as e:
         logger.error("get_query_intent is error:{}".format(e))
         return default_intent
 
 
 def get_query_rewrite(model_id, search_box, prompt_map, chat_history):
-    query_rewrite = {"query_rewrite": search_box}
-    history_query = ""
-    for item in chat_history:
-        history_query = history_query + "user : " + item + "\n"
+    query_rewrite = {"intent": "original_problem", "query": search_box}
+    history_query = "\n".join(chat_history)
     try:
-        intent_endpoint = os.getenv("SAGEMAKER_ENDPOINT_INTENT")
-        if intent_endpoint:
-            # TODO may need to modify the prompt
-            body = json.dumps(
-                {"query": generate_sagemaker_intent_prompt(search_box, meta_instruction=SEARCH_INTENT_PROMPT_CLAUDE3)})
-            response = invoke_model_sagemaker_endpoint(intent_endpoint, body)
-            logger.info(f'{response=}')
-            intent_result_dict = json_parse.parse(response)
-            return intent_result_dict
-        else:
-            user_prompt, system_prompt = generate_query_rewrite_prompt(prompt_map, search_box, model_id, history_query)
-            max_tokens = 2048
-            final_response = invoke_llm_model(model_id, system_prompt, user_prompt, max_tokens, False)
-            logger.info(f'{final_response=}')
-            return final_response
+        user_prompt, system_prompt = generate_query_rewrite_prompt(prompt_map, search_box, model_id, history_query)
+        max_tokens = 2048
+        final_response = invoke_llm_model(model_id, system_prompt, user_prompt, max_tokens, False)
+        query_rewrite_result = json_parse.parse(final_response)
+        logger.info(f'{final_response=}')
+        return query_rewrite_result
     except Exception as e:
         logger.error("get_query_rewrite is error:{}".format(e))
         return query_rewrite
@@ -436,9 +421,11 @@ def select_data_visualization_type(model_id, search_box, search_data, prompt_map
 
 
 def data_visualization(model_id, search_box, search_data, prompt_map):
+    search_data = search_data.fillna("")
     columns = list(search_data.columns)
     data_list = search_data.values.tolist()
     all_columns_data = [columns] + data_list
+    all_columns_data = convert_timestamps_to_str(all_columns_data)
     try:
         if len(all_columns_data) < 1:
             return "table", all_columns_data, "-1", []
@@ -475,7 +462,7 @@ def data_visualization(model_id, search_box, search_data, prompt_map):
 def create_vector_embedding_with_bedrock(text, index_name):
     payload = {"inputText": f"{text}"}
     body = json.dumps(payload)
-    modelId = "amazon.titan-embed-text-v1"
+    modelId = BEDROCK_EMBEDDING_MODEL
     accept = "application/json"
     contentType = "application/json"
 
@@ -489,14 +476,15 @@ def create_vector_embedding_with_bedrock(text, index_name):
 
 
 def create_vector_embedding_with_sagemaker(endpoint_name, text, index_name):
-    model_kwargs = {}
-    model_kwargs["batch_size"] = 12
-    model_kwargs["max_length"] = 512
-    model_kwargs["return_type"] = "dense"
-    body = json.dumps({"inputs": [text], **model_kwargs})
-    response = invoke_model_sagemaker_endpoint(endpoint_name, body)
-    embeddings = response["sentence_embeddings"]
-    return {"_index": index_name, "text": text, "vector_field": embeddings["dense_vecs"][0]}
+    body = json.dumps(
+        {
+            "inputs": text,
+            "is_query": True
+        }
+    )
+    response = invoke_model_sagemaker_endpoint(endpoint_name, body, model_type="embedding")
+    embeddings = response[0]
+    return {"_index": index_name, "text": text, "vector_field": embeddings}
 
 
 def generate_suggested_question(prompt_map, search_box, model_id=None):

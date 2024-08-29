@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import boto3
 from botocore.exceptions import ClientError
@@ -41,6 +42,16 @@ OPENSEARCH_SECRETS_USERNAME_PASSWORD = os.getenv('OPENSEARCH_SECRETS_USERNAME_PA
 
 BEDROCK_SECRETS_AK_SK = os.getenv('BEDROCK_SECRETS_AK_SK', '')
 
+BEDROCK_EMBEDDING_MODEL = os.getenv('BEDROCK_EMBEDDING_MODEL', '')
+
+SAGEMAKER_ENDPOINT_EMBEDDING = os.getenv('SAGEMAKER_ENDPOINT_EMBEDDING', '')
+
+SAGEMAKER_ENDPOINT_SQL = os.getenv('SAGEMAKER_ENDPOINT_SQL', '')
+
+SAGEMAKER_EMBEDDING_REGION = os.getenv('SAGEMAKER_EMBEDDING_REGION', '')
+
+SAGEMAKER_SQL_REGION = os.getenv('SAGEMAKER_SQL_REGION', '')
+
 
 def get_opensearch_parameter():
     try:
@@ -78,8 +89,10 @@ def get_bedrock_parameter():
             secret_key = data.get('secret_access_key')
             bedrock_ak_sk_info['access_key_id'] = access_key
             bedrock_ak_sk_info['secret_access_key'] = secret_key
+        else:
+            return bedrock_ak_sk_info
     except ClientError as e:
-        raise e
+        logging.error(e)
     return bedrock_ak_sk_info
 
 if OPENSEARCH_TYPE == "service":
@@ -101,5 +114,7 @@ opensearch_info = {
     'agent_index': AOS_INDEX_AGENT,
     'embedding_dimension': EMBEDDING_DIMENSION
 }
+
+query_log_name = os.getenv("QUERY_LOG_INDEX_NAME", "genbi_query_logging")
 
 bedrock_ak_sk_info = get_bedrock_parameter()

@@ -15,7 +15,7 @@ def get_authenticator():
         config['credentials'],
         config['cookie']['name'],
         config['cookie']['key'],
-        config['cookie']['expiry_days'],
+        float(config['cookie']['expiry_days']),
         config['pre-authorized']
     )
 
@@ -35,15 +35,18 @@ def make_sidebar():
         if st.session_state.get('authentication_status'):
             st.page_link("pages/mainpage.py", label="Index")
             st.page_link("pages/1_🌍_Generative_BI_Playground.py", label="Generative BI Playground", icon="🌍")
-            st.markdown(":gray[Data Customization Management]", help='Add your own datasources and customize description for LLM to better understand them')
+            st.markdown(":gray[Data Customization Management]",
+                        help='Add your own datasources and customize description for LLM to better understand them')
             st.page_link("pages/2_🪙_Data_Connection_Management.py", label="Data Connection Management", icon="🪙")
             st.page_link("pages/3_🪙_Data_Profile_Management.py", label="Data Profile Management", icon="🪙")
             st.page_link("pages/4_🪙_Schema_Description_Management.py", label="Schema Description Management", icon="🪙")
             st.page_link("pages/5_🪙_Prompt_Management.py", label="Prompt Management", icon="🪙")
-            st.markdown(":gray[Performance Enhancement]", help='Optimize your LLM for better performance by adding RAG or agent')
+            st.markdown(":gray[Performance Enhancement]",
+                        help='Optimize your LLM for better performance by adding RAG or agent')
             st.page_link("pages/6_📚_Index_Management.py", label="Index Management", icon="📚")
             st.page_link("pages/7_📚_Entity_Management.py", label="Entity Management", icon="📚")
             st.page_link("pages/8_📚_Agent_Cot_Management.py", label="Agent Cot Management", icon="📚")
+            st.page_link("pages/9_🪙_SageMaker_Model_Management.py", label="SageMaker Model Management", icon="🪙")
 
             if st.button("Log out"):
                 logout()

@@ -24,14 +24,41 @@ def main():
     if 'profile_page_mode' not in st.session_state:
         st.session_state['index_mgt_mode'] = 'default'
 
+    if 'current_profile' not in st.session_state:
+        st.session_state['current_profile'] = ''
+
+    if "profiles_list" not in st.session_state:
+        st.session_state["profiles_list"] = []
+
+    if "update_profile" not in st.session_state:
+        st.session_state.update_profile = False
+
+    if 'profiles' not in st.session_state:
+        all_profiles = ProfileManagement.get_all_profiles_with_info()
+        st.session_state['profiles'] = all_profiles
+        st.session_state["profiles_list"] = list(all_profiles.keys())
+
+    if st.session_state.update_profile:
+        logger.info("session_state update_profile get_all_profiles_with_info")
+        all_profiles = ProfileManagement.get_all_profiles_with_info()
+        st.session_state["profiles_list"] = list(all_profiles.keys())
+        st.session_state['profiles'] = all_profiles
+        st.session_state.update_profile = False
+
     with st.sidebar:
         st.title("Agent Cot Management")
-        current_profile = st.selectbox("My Data Profiles", ProfileManagement.get_all_profiles(),
+        all_profiles_list = st.session_state["profiles_list"]
+        if st.session_state.current_profile != "" and st.session_state.current_profile in all_profiles_list:
+            profile_index = all_profiles_list.index(st.session_state.current_profile)
+            current_profile = st.selectbox("My Data Profiles", all_profiles_list, index=profile_index)
+        else:
+            current_profile = st.selectbox("My Data Profiles", all_profiles_list,
                                        index=None,
                                        placeholder="Please select data profile...", key='current_profile_name')
 
     tab_view, tab_add, tab_search = st.tabs(['View Samples', 'Add New Sample', 'Sample Search'])
     if current_profile is not None:
+        st.session_state['current_profile'] = current_profile
         with tab_view:
             if current_profile is not None:
                 st.write("The display page can show a maximum of 5000 pieces of data")

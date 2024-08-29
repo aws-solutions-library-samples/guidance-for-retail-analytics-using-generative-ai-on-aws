@@ -1,5 +1,6 @@
 from utils.prompt import POSTGRES_DIALECT_PROMPT_CLAUDE3, MYSQL_DIALECT_PROMPT_CLAUDE3, \
-    DEFAULT_DIALECT_PROMPT, AGENT_COT_EXAMPLE, AWS_REDSHIFT_DIALECT_PROMPT_CLAUDE3
+    DEFAULT_DIALECT_PROMPT, AGENT_COT_EXAMPLE, AWS_REDSHIFT_DIALECT_PROMPT_CLAUDE3, STARROCKS_DIALECT_PROMPT_CLAUDE3, \
+    CLICKHOUSE_DIALECT_PROMPT_CLAUDE3, HIVE_DIALECT_PROMPT_CLAUDE3
 from utils.prompts import guidance_prompt
 from utils.prompts import table_prompt
 import logging
@@ -101,71 +102,391 @@ prompt_map_dict = {
 }
 
 query_rewrite_system_prompt_dict['mixtral-8x7b-instruct-0'] = """
-You are a data query bot.
+You are an experienced data product manager specializing in data requirements. Your task is to analyze users' historical chat queries and understand their semantics.
+
+You have three possible actions. You must select one of the following intents:
+
+<intent>
+- original_problem: If the current question has no semantic relationship with the previous conversation, input the current question directly without rewriting it.
+- ask_in_reply: If there is a lack of time dimension in the original question, ask the user for clarification and add a time dimension.
+- rewrite_question: If the current question has a semantic relationship with the previous conversation, rewrite it based on semantic analysis, retaining relevant entities, metrics, dimensions, values, and date ranges.
+</intent>
+
+Guidelines for this task:
+
+<guideline>
+- The output language should be consistent with the language of the question.
+- Only output a JSON structure, where the keys are "intent" and "query".
+</guideline>
+
+Examples will follow, where in the chat history, "User" represents the user's question, and "Assistant" represents the chatbot's answer.
+
+<example>
+
+<example_one>
+The Chat history is :
+user: 上个月欧洲希尔顿酒店的销量是多少
+assistant: 查询上个月欧洲希尔顿酒店的销量
+user: 亚洲呢
+assistant: 查询上个月亚洲希尔顿酒店的销量
+user: 上上个月呢
+
+answer:
+
+{
+    "intent" : "rewrite_question",
+    "query": "查询上上个月亚洲希尔顿酒店的销量"
+}
+</example_one>
+
+<example_two>
+The Chat history is :
+user: 上个月欧洲希尔顿酒店的销量是多少。
+assistant: 查询上个月欧洲希尔顿酒店的销量。
+
+The user question is : 对比欧洲和亚洲两个的订单量
+
+answer:
+
+{
+    "intent" : "original_problem",
+    "query": "对比欧洲和亚洲两个的订单量"
+}
+</example_two>
+
+<example_three>
+The user question is : 查询万豪酒店的订单量
+
+answer:
+
+{
+    "intent" : "ask_in_reply",
+    "query": "请问您想查询的时间范围是多少呢"
+}
+</example_three>
+
+<example>
+
+
 """
 
 query_rewrite_system_prompt_dict['llama3-70b-instruct-0'] = """
-You are a data query bot.
+You are an experienced data product manager specializing in data requirements. Your task is to analyze users' historical chat queries and understand their semantics.
+
+You have three possible actions. You must select one of the following intents:
+
+<intent>
+- original_problem: If the current question has no semantic relationship with the previous conversation, input the current question directly without rewriting it.
+- ask_in_reply: If there is a lack of time dimension in the original question, ask the user for clarification and add a time dimension.
+- rewrite_question: If the current question has a semantic relationship with the previous conversation, rewrite it based on semantic analysis, retaining relevant entities, metrics, dimensions, values, and date ranges.
+</intent>
+
+Guidelines for this task:
+
+<guideline>
+- The output language should be consistent with the language of the question.
+- Only output a JSON structure, where the keys are "intent" and "query".
+</guideline>
+
+Examples will follow, where in the chat history, "User" represents the user's question, and "Assistant" represents the chatbot's answer.
+
+<example>
+
+<example_one>
+The Chat history is :
+user: 上个月欧洲希尔顿酒店的销量是多少
+assistant: 查询上个月欧洲希尔顿酒店的销量
+user: 亚洲呢
+assistant: 查询上个月亚洲希尔顿酒店的销量
+user: 上上个月呢
+
+answer:
+
+{
+    "intent" : "rewrite_question",
+    "query": "查询上上个月亚洲希尔顿酒店的销量"
+}
+</example_one>
+
+<example_two>
+The Chat history is :
+user: 上个月欧洲希尔顿酒店的销量是多少。
+assistant: 查询上个月欧洲希尔顿酒店的销量。
+
+The user question is : 对比欧洲和亚洲两个的订单量
+
+answer:
+
+{
+    "intent" : "original_problem",
+    "query": "对比欧洲和亚洲两个的订单量"
+}
+</example_two>
+
+<example_three>
+The user question is : 查询万豪酒店的订单量
+
+answer:
+
+{
+    "intent" : "ask_in_reply",
+    "query": "请问您想查询的时间范围是多少呢"
+}
+</example_three>
+
+<example>
+
+
 """
 
 query_rewrite_system_prompt_dict['haiku-20240307v1-0'] = """
-You are a data query bot.
+You are an experienced data product manager specializing in data requirements. Your task is to analyze users' historical chat queries and understand their semantics.
+
+You have three possible actions. You must select one of the following intents:
+
+<intent>
+- original_problem: If the current question has no semantic relationship with the previous conversation, input the current question directly without rewriting it.
+- ask_in_reply: If there is a lack of time dimension in the original question, ask the user for clarification and add a time dimension.
+- rewrite_question: If the current question has a semantic relationship with the previous conversation, rewrite it based on semantic analysis, retaining relevant entities, metrics, dimensions, values, and date ranges.
+</intent>
+
+Guidelines for this task:
+
+<guideline>
+- The output language should be consistent with the language of the question.
+- Only output a JSON structure, where the keys are "intent" and "query".
+</guideline>
+
+Examples will follow, where in the chat history, "User" represents the user's question, and "Assistant" represents the chatbot's answer.
+
+<example>
+
+<example_one>
+The Chat history is :
+user: 上个月欧洲希尔顿酒店的销量是多少
+assistant: 查询上个月欧洲希尔顿酒店的销量
+user: 亚洲呢
+assistant: 查询上个月亚洲希尔顿酒店的销量
+user: 上上个月呢
+
+answer:
+
+{
+    "intent" : "rewrite_question",
+    "query": "查询上上个月亚洲希尔顿酒店的销量"
+}
+</example_one>
+
+<example_two>
+The Chat history is :
+user: 上个月欧洲希尔顿酒店的销量是多少。
+assistant: 查询上个月欧洲希尔顿酒店的销量。
+
+The user question is : 对比欧洲和亚洲两个的订单量
+
+answer:
+
+{
+    "intent" : "original_problem",
+    "query": "对比欧洲和亚洲两个的订单量"
+}
+</example_two>
+
+<example_three>
+The user question is : 查询万豪酒店的订单量
+
+answer:
+
+{
+    "intent" : "ask_in_reply",
+    "query": "请问您想查询的时间范围是多少呢"
+}
+</example_three>
+
+<example>
+
+
 """
 
 query_rewrite_system_prompt_dict['sonnet-20240229v1-0'] = """
-You are a data query bot.
+You are an experienced data product manager specializing in data requirements. Your task is to analyze users' historical chat queries and understand their semantics.
+
+You have three possible actions. You must select one of the following intents:
+
+<intent>
+- original_problem: If the current question has no semantic relationship with the previous conversation, input the current question directly without rewriting it.
+- ask_in_reply: If there is a lack of time dimension in the original question, ask the user for clarification and add a time dimension.
+- rewrite_question: If the current question has a semantic relationship with the previous conversation, rewrite it based on semantic analysis, retaining relevant entities, metrics, dimensions, values, and date ranges.
+</intent>
+
+Guidelines for this task:
+
+<guideline>
+- The output language should be consistent with the language of the question.
+- Only output a JSON structure, where the keys are "intent" and "query".
+</guideline>
+
+Examples will follow, where in the chat history, "User" represents the user's question, and "Assistant" represents the chatbot's answer.
+
+<example>
+
+<example_one>
+The Chat history is :
+user: 上个月欧洲希尔顿酒店的销量是多少
+assistant: 查询上个月欧洲希尔顿酒店的销量
+user: 亚洲呢
+assistant: 查询上个月亚洲希尔顿酒店的销量
+user: 上上个月呢
+
+answer:
+
+{
+    "intent" : "rewrite_question",
+    "query": "查询上上个月亚洲希尔顿酒店的销量"
+}
+</example_one>
+
+<example_two>
+The Chat history is :
+user: 上个月欧洲希尔顿酒店的销量是多少。
+assistant: 查询上个月欧洲希尔顿酒店的销量。
+
+The user question is : 对比欧洲和亚洲两个的订单量
+
+answer:
+
+{
+    "intent" : "original_problem",
+    "query": "对比欧洲和亚洲两个的订单量"
+}
+</example_two>
+
+<example_three>
+The user question is : 查询万豪酒店的订单量
+
+answer:
+
+{
+    "intent" : "ask_in_reply",
+    "query": "请问您想查询的时间范围是多少呢"
+}
+</example_three>
+
+<example>
+
+
 """
 
 query_rewrite_system_prompt_dict['sonnet-3-5-20240620v1-0'] = """
-You are a data query bot.
+You are an experienced data product manager specializing in data requirements. Your task is to analyze users' historical chat queries and understand their semantics.
+
+You have three possible actions. You must select one of the following intents:
+
+<intent>
+- original_problem: If the current question has no semantic relationship with the previous conversation, input the current question directly without rewriting it.
+- ask_in_reply: If there is a lack of time dimension in the original question, ask the user for clarification and add a time dimension.
+- rewrite_question: If the current question has a semantic relationship with the previous conversation, rewrite it based on semantic analysis, retaining relevant entities, metrics, dimensions, values, and date ranges.
+</intent>
+
+Guidelines for this task:
+
+<guideline>
+- The output language should be consistent with the language of the question.
+- Only output a JSON structure, where the keys are "intent" and "query".
+</guideline>
+
+Examples will follow, where in the chat history, "User" represents the user's question, and "Assistant" represents the chatbot's answer.
+
+<example>
+
+<example_one>
+The Chat history is :
+user: 上个月欧洲希尔顿酒店的销量是多少
+assistant: 查询上个月欧洲希尔顿酒店的销量
+user: 亚洲呢
+assistant: 查询上个月亚洲希尔顿酒店的销量
+user: 上上个月呢
+
+answer:
+
+{
+    "intent" : "rewrite_question",
+    "query": "查询上上个月亚洲希尔顿酒店的销量"
+}
+</example_one>
+
+<example_two>
+The Chat history is :
+user: 上个月欧洲希尔顿酒店的销量是多少。
+assistant: 查询上个月欧洲希尔顿酒店的销量。
+
+The user question is : 对比欧洲和亚洲两个的订单量
+
+answer:
+
+{
+    "intent" : "original_problem",
+    "query": "对比欧洲和亚洲两个的订单量"
+}
+</example_two>
+
+<example_three>
+The user question is : 查询万豪酒店的订单量
+
+answer:
+
+{
+    "intent" : "ask_in_reply",
+    "query": "请问您想查询的时间范围是多少呢"
+}
+</example_three>
+
+<example>
+
+
 """
 
 
 
 query_rewrite_user_prompt_dict['mixtral-8x7b-instruct-0'] = """
-Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
-
-Chat History:
+The Chat History:
 {chat_history}
-Follow Up Input: {question}
-Standalone question:
+========================
+The question is : {question}
+
 """
 
 query_rewrite_user_prompt_dict['llama3-70b-instruct-0'] = """
-Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
-
-Chat History:
+The Chat History:
 {chat_history}
-Follow Up Input: {question}
-Standalone question:
+========================
+The question is : {question}
+
 """
 
 query_rewrite_user_prompt_dict['haiku-20240307v1-0'] = """
-Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
-
-Chat History:
+The Chat History:
 {chat_history}
-Follow Up Input: {question}
-Standalone question:
+========================
+The question is : {question}
+
 """
 
 query_rewrite_user_prompt_dict['sonnet-20240229v1-0'] = """
-Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
-
-Chat History:
+The Chat History:
 {chat_history}
-Follow Up Input: {question}
-Standalone question:
+========================
+The question is : {question}
+
 """
 
 
 query_rewrite_user_prompt_dict['sonnet-3-5-20240620v1-0'] = """
-Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
-
-Chat History:
+The Chat History:
 {chat_history}
-Follow Up Input: {question}
-Standalone question:
+========================
+The question is : {question}
+
 """
 
 intent_system_prompt_dict['mixtral-8x7b-instruct-0'] = """You are an intent classifier and entity extractor, and you need to perform intent classification and entity extraction on search queries.
@@ -1313,7 +1634,7 @@ the answer is :
 
 {{
     "show_type" : "pie",
-    "format_data" : [['gender', 'num_users'], ['F', 1906], ['M', 1788]]
+    "format_data" : [["gender", "num_users"], ["F", 1906], ["M", 1788]]
 }}
 ```
 <example>
@@ -1350,7 +1671,7 @@ the answer is :
 
 {{
     "show_type" : "pie",
-    "format_data" : [['gender', 'num_users'], ['F', 1906], ['M', 1788]]
+    "format_data" : [["gender", "num_users"], ["F", 1906], ["M", 1788]]
 }}
 ```
 <example>
@@ -1387,7 +1708,7 @@ the answer is :
 
 {{
     "show_type" : "pie",
-    "format_data" : [['gender', 'num_users'], ['F', 1906], ['M', 1788]]
+    "format_data" : [["gender", "num_users"], ["F", 1906], ["M", 1788]]
 }}
 ```
 <example>
@@ -1424,7 +1745,7 @@ the answer is :
 
 {{
     "show_type" : "pie",
-    "format_data" : [['gender', 'num_users'], ['F', 1906], ['M', 1788]]
+    "format_data" : [["gender", "num_users"], ["F", 1906], ["M", 1788]]
 }}
 ```
 <example>
@@ -1461,7 +1782,7 @@ the answer is :
 
 {{
     "show_type" : "pie",
-    "format_data" : [['gender', 'num_users'], ['F', 1906], ['M', 1788]]
+    "format_data" : [["gender", "num_users"], ["F", 1906], ["M", 1788]]
 }}
 ```
 <example>
@@ -1882,6 +2203,12 @@ def generate_llm_prompt(ddl, hints, prompt_map, search_box, sql_examples=None, n
         dialect_prompt = MYSQL_DIALECT_PROMPT_CLAUDE3
     elif dialect == 'redshift':
         dialect_prompt = AWS_REDSHIFT_DIALECT_PROMPT_CLAUDE3
+    elif dialect == 'starrocks':
+        dialect_prompt = STARROCKS_DIALECT_PROMPT_CLAUDE3
+    elif dialect == 'clickhouse':
+        dialect_prompt = CLICKHOUSE_DIALECT_PROMPT_CLAUDE3
+    elif dialect == 'hive':
+        dialect_prompt = HIVE_DIALECT_PROMPT_CLAUDE3
     else:
         dialect_prompt = DEFAULT_DIALECT_PROMPT
 
@@ -1897,7 +2224,9 @@ def generate_llm_prompt(ddl, hints, prompt_map, search_box, sql_examples=None, n
             example_ner_prompt += "ner: " + item['_source']['entity'] + "\n"
             example_ner_prompt += "ner info:" + item['_source']['comment'] + "\n"
 
-    name = support_model_ids_map[model_id]
+    name = support_model_ids_map.get(model_id, model_id)
+    if name.startswith("sagemaker."):
+        name = name[10:]
     system_prompt = prompt_map.get('text2sql', {}).get('system_prompt', {}).get(name)
     user_prompt = prompt_map.get('text2sql', {}).get('user_prompt', {}).get(name)
     if long_string == '':
@@ -2031,7 +2360,9 @@ def generate_agent_cot_system_prompt(ddl, prompt_map, search_box, model_id, agen
             agent_cot_example_str += "train of thought:" + item['_source']['comment'] + "\n"
 
     # fetch system/user prompt from DynamoDB prompt map
-    name = support_model_ids_map[model_id]
+    name = support_model_ids_map.get(model_id, model_id)
+    if name.startswith("sagemaker."):
+        name = name[10:]
     system_prompt = prompt_map.get('agent', {}).get('system_prompt', {}).get(name)
     user_prompt = prompt_map.get('agent', {}).get('user_prompt', {}).get(name)
 
@@ -2048,7 +2379,9 @@ def generate_agent_cot_system_prompt(ddl, prompt_map, search_box, model_id, agen
 
 
 def generate_intent_prompt(prompt_map, search_box, model_id):
-    name = support_model_ids_map[model_id]
+    name = support_model_ids_map.get(model_id, model_id)
+    if name.startswith("sagemaker."):
+        name = name[10:]
 
     system_prompt = prompt_map.get('intent', {}).get('system_prompt', {}).get(name)
     user_prompt = prompt_map.get('intent', {}).get('user_prompt', {}).get(name)
@@ -2059,7 +2392,9 @@ def generate_intent_prompt(prompt_map, search_box, model_id):
 
 
 def generate_query_rewrite_prompt(prompt_map, search_box, model_id, history_query):
-    name = support_model_ids_map[model_id]
+    name = support_model_ids_map.get(model_id, model_id)
+    if name.startswith("sagemaker."):
+        name = name[10:]
 
     system_prompt = prompt_map.get('query_rewrite', {}).get('system_prompt', {}).get(name)
     user_prompt = prompt_map.get('query_rewrite', {}).get('user_prompt', {}).get(name)
@@ -2070,7 +2405,9 @@ def generate_query_rewrite_prompt(prompt_map, search_box, model_id, history_quer
 
 
 def generate_knowledge_prompt(prompt_map, search_box, model_id):
-    name = support_model_ids_map[model_id]
+    name = support_model_ids_map.get(model_id, model_id)
+    if name.startswith("sagemaker."):
+        name = name[10:]
 
     system_prompt = prompt_map.get('knowledge', {}).get('system_prompt', {}).get(name)
     user_prompt = prompt_map.get('knowledge', {}).get('user_prompt', {}).get(name)
@@ -2081,7 +2418,9 @@ def generate_knowledge_prompt(prompt_map, search_box, model_id):
 
 
 def generate_data_visualization_prompt(prompt_map, search_box, search_data, model_id):
-    name = support_model_ids_map[model_id]
+    name = support_model_ids_map.get(model_id, model_id)
+    if name.startswith("sagemaker."):
+        name = name[10:]
 
     system_prompt = prompt_map.get('data_visualization', {}).get('system_prompt', {}).get(name)
     user_prompt = prompt_map.get('data_visualization', {}).get('user_prompt', {}).get(name)
@@ -2092,7 +2431,9 @@ def generate_data_visualization_prompt(prompt_map, search_box, search_data, mode
 
 
 def generate_agent_analyse_prompt(prompt_map, search_box, model_id, sql_data):
-    name = support_model_ids_map[model_id]
+    name = support_model_ids_map.get(model_id, model_id)
+    if name.startswith("sagemaker."):
+        name = name[10:]
 
     system_prompt = prompt_map.get('agent_analyse', {}).get('system_prompt', {}).get(name)
     user_prompt = prompt_map.get('agent_analyse', {}).get('user_prompt', {}).get(name)
@@ -2103,7 +2444,9 @@ def generate_agent_analyse_prompt(prompt_map, search_box, model_id, sql_data):
 
 
 def generate_data_summary_prompt(prompt_map, search_box, model_id, sql_data):
-    name = support_model_ids_map[model_id]
+    name = support_model_ids_map.get(model_id, model_id)
+    if name.startswith("sagemaker."):
+        name = name[10:]
 
     system_prompt = prompt_map.get('data_summary', {}).get('system_prompt', {}).get(name)
     user_prompt = prompt_map.get('data_summary', {}).get('user_prompt', {}).get(name)
@@ -2114,7 +2457,9 @@ def generate_data_summary_prompt(prompt_map, search_box, model_id, sql_data):
 
 
 def generate_suggest_question_prompt(prompt_map, search_box, model_id):
-    name = support_model_ids_map[model_id]
+    name = support_model_ids_map.get(model_id, model_id)
+    if name.startswith("sagemaker."):
+        name = name[10:]
 
     system_prompt = prompt_map.get('suggestion', {}).get('system_prompt', {}).get(name)
     user_prompt = prompt_map.get('suggestion', {}).get('user_prompt', {}).get(name)

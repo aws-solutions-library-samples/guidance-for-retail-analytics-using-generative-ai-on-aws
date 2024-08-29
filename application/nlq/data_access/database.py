@@ -12,20 +12,34 @@ class RelationDatabase():
     db_mapping = {
         'mysql': 'mysql+pymysql',
         'postgresql': 'postgresql+psycopg2',
-        'redshift': 'postgresql+psycopg2'
+        'redshift': 'redshift+psycopg2',
+        'starrocks': 'starrocks',
+        'clickhouse': 'clickhouse',
+        'hive': 'hive'
         # Add more mappings here for other databases
     }
 
     @classmethod
     def get_db_url(cls, db_type, user, password, host, port, db_name):
-        db_url = db.engine.URL.create(
-            drivername=cls.db_mapping[db_type],
-            username=user,
-            password=password,
-            host=host,
-            port=port,
-            database=db_name
-        )
+        if db_type == "hive":
+            db_url = db.engine.URL.create(
+                drivername=cls.db_mapping[db_type],
+                username=user,
+                password=password,
+                host=host,
+                port=port,
+                database=db_name,
+                query={'auth': 'LDAP'}
+            )
+        else:
+            db_url = db.engine.URL.create(
+                drivername=cls.db_mapping[db_type],
+                username=user,
+                password=password,
+                host=host,
+                port=port,
+                database=db_name
+            )
         return db_url
 
     @classmethod
@@ -41,37 +55,20 @@ class RelationDatabase():
 
     @classmethod
     def get_all_schema_names_by_connection(cls, connection: ConnectConfigEntity):
-        schemas = []
-        if connection.db_type == 'postgresql':
-            db_url = cls.get_db_url(connection.db_type, connection.db_user, connection.db_pwd, connection.db_host,
-                                    connection.db_port, connection.db_name)
-            engine = db.create_engine(db_url)
-            # with engine.connect() as conn:
-            #     query = text("""
-            #         SELECT nspname AS schema_name
-            #         FROM pg_catalog.pg_namespace
-            #         WHERE nspname !~ '^pg_' AND nspname <> 'information_schema' AND nspname <> 'public'
-            #         AND has_schema_privilege(nspname, 'USAGE');
-            #     """)
-            #
-            #     # Executing the query
-            #     result = conn.execute(query)
-            #     schemas = [row['schema_name'] for row in result.mappings()]
-            #     print(schemas)
-            inspector = sqlalchemy.inspect(engine)
+        db_type = connection.db_type
+        db_url = cls.get_db_url(db_type, connection.db_user, connection.db_pwd, connection.db_host, connection.db_port,
+                                connection.db_name)
+        engine = db.create_engine(db_url)
+        inspector = inspect(engine)
+
+        if db_type == 'postgresql':
+            schemas = [schema for schema in inspector.get_schema_names() if
+                       schema not in ('pg_catalog', 'information_schema', 'public')]
+        elif db_type in ('redshift', 'mysql', 'starrocks', 'clickhouse', 'hive'):
             schemas = inspector.get_schema_names()
-        elif connection.db_type == 'redshift':
-            db_url = cls.get_db_url(connection.db_type, connection.db_user, connection.db_pwd, connection.db_host,
-                                    connection.db_port, connection.db_name)
-            engine = db.create_engine(db_url)
-            inspector = inspect(engine)
-            schemas = inspector.get_schema_names()
-        elif connection.db_type == 'mysql':
-            db_url = cls.get_db_url(connection.db_type, connection.db_user, connection.db_pwd, connection.db_host,
-                                    connection.db_port, connection.db_name)
-            engine = db.create_engine(db_url)
-            database_connect = sqlalchemy.inspect(engine)
-            schemas = database_connect.get_schema_names()
+        else:
+            raise ValueError("Unsupported database type")
+
         return schemas
 
     @classmethod
@@ -89,8 +86,8 @@ class RelationDatabase():
         # connection = engine.connect()
         metadata = db.MetaData()
         for s in schemas:
-            metadata.reflect(bind=engine, schema=s)
-        metadata.reflect(bind=engine)
+            metadata.reflect(bind=engine, schema=s, views=True)
+        # metadata.reflect(bind=engine)
         return metadata
 
     @classmethod
