@@ -204,7 +204,7 @@ After the CDK stack is deployed, wait around 40 minutes for the initialization t
    Add business entity information:
    - Click `Entity_Management`.
 
-   ![image](https://github.com/aws-samples/generative-bi-using-rag/assets/12369067/8aa6446d-e520-4d76-9139-579a2db09bbe)
+   ![image](./assets/entity_management.png)
 
    - Entity: mainly write the name of the entity.
    - Comment: mainly write the explanation of the entity, such as which field the entity needs to query, what the value of the entity is in the table, the calculation logic of specific formulas, explanations of business names, etc.
@@ -212,7 +212,7 @@ After the CDK stack is deployed, wait around 40 minutes for the initialization t
    Add sample question SQL information:
    - Click `Index_Management`.
 
-   ![image](https://github.com/aws-samples/generative-bi-using-rag/assets/12369067/9e8bf49c-02d5-430e-b857-0c2afcfae78a)
+   ![image](./assets/qa_management.png)
 
    - Question: mainly the user's question.
    - Answer (SQL): mainly the query SQL for the question.
@@ -220,7 +220,7 @@ After the CDK stack is deployed, wait around 40 minutes for the initialization t
    Add analysis ideas for complex questions:
    - Click `Agent_Cot_Management`.
 
-   ![image](https://github.com/aws-samples/generative-bi-using-rag/assets/12369067/6ff79825-328e-4d9c-bc16-a0b1da654621)
+   ![image](./assets/agent_cot.png)
 
    - Query: user's complex business question.
    - Comment: analysis ideas for the question, in dict structure, where the key is task_1, task_2, ..., and the value is the sub-tasks for the question.
