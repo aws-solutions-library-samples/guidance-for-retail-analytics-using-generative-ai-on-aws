@@ -16,7 +16,7 @@ interface MainStackProps extends StackProps {
 export class MainStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props: MainStackProps = {deployRds: false}) {
         super(scope, id, props);
-
+        this.templateOptions.description = 'Guidance for Retail Analytics with Generative AI on AWS (SO9518)'
         const _deployRds = props.deployRds || false;
 
         // ======== Step 0. Define the VPC =========
